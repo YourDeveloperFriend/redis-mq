@@ -8,7 +8,6 @@ class RedisBase
 		defaults =
 			delimiter: "|"
 			client: null
-			id: null
 			redis_base: null
 		options = _.extend {}, defaults, options
 		for key, value of options
