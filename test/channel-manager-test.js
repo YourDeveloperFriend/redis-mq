@@ -256,6 +256,41 @@
         assert.notEqual(-1, result.channels_unsubscribed.indexOf("messages|432"));
         return assert.notEqual(-1, result.channels_unsubscribed.indexOf("messages|12345"));
       }
+    },
+    "Get Next Message": {
+      topic: function() {
+        var cm, m, promise, uniq;
+        promise = new events.EventEmitter;
+        cm = new ChannelManager({
+          client: {
+            on: function() {},
+            subscribe: function() {},
+            unsubscribe: function() {}
+          },
+          cleanup: 500
+        });
+        uniq = cm.listen("12121");
+        cm.gotMessage("messages|12121", "This is a message");
+        cm.gotMessage("messages|12121", "Message2");
+        m = [];
+        cm.getNextMessage("12121", uniq, function(message_list) {
+          m = m.concat(message_list);
+          return true;
+        });
+        cm.getNextMessage("12121", uniq, function(message_list) {
+          m = m.concat(message_list);
+          promise.emit("success", m);
+          return true;
+        });
+        cm.gotMessage("messages|12121", "A last message");
+        return promise;
+      },
+      "All the messages were gotten": function(message_list) {
+        console.log(message_list);
+        assert.notEqual(-1, message_list.indexOf("This is a message"));
+        assert.notEqual(-1, message_list.indexOf("Message2"));
+        return assert.notEqual(-1, message_list.indexOf("A last message"));
+      }
     }
   }).run();
 

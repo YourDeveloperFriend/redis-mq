@@ -22,24 +22,19 @@ class ChannelManager
 	
 	gotMessage: (channel, message)=>
 		userid = @extractChannelKey channel
-		if @channels[userid]
-			_.each @channels[userid].subscribers, (subscriber, uniq)->
-				unless subscriber.callback [message]
+		if @channels[userid]?
+			for uniq, subscriber of @channels[userid].subscribers
+				if not subscriber.callback? or not subscriber.callback [message]
 					subscriber.messages.push message
 				
 	getNextMessage: (userid, uniq, callback)->
-		console.log "About to get next method"
 		if @channels[userid]?.subscribers[uniq]
-			console.log "found subscriber"
 			clearTimeout @channels[userid].subscribers[uniq].cleanupTimeout
 			@channels[userid].subscribers[uniq].cleanupTimeout = @setCleanup userid, uniq
 			if @channels[userid].subscribers[uniq].messages.length > 0
-				console.log "messages already waiting"
 				if callback @channels[userid].subscribers[uniq].messages
-					console.log "callback succeeded"
 					@channels[userid].subscribers[uniq].messages = []
 			else
-				console.log "waiting for next message"
 				@channels[userid].subscribers[uniq].callback = callback
 		else
 			throw "SubscriptionLost"

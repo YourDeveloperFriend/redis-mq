@@ -175,4 +175,33 @@ vows.describe("Channel Manager Test").addBatch(
 			assert.equal 0, Object.keys(result.cm.channels).length
 			assert.notEqual -1, result.channels_unsubscribed.indexOf("messages|432")
 			assert.notEqual -1, result.channels_unsubscribed.indexOf("messages|12345")
+	"Get Next Message":
+		topic: ->
+			promise = new (events.EventEmitter)
+			cm = new ChannelManager
+				client:
+					on: ->
+						
+					subscribe: ->
+						
+					unsubscribe: ->
+						
+				cleanup: 500
+			uniq = cm.listen "12121"
+			cm.gotMessage "messages|12121", "This is a message"
+			cm.gotMessage "messages|12121", "Message2"
+			m = []
+			cm.getNextMessage "12121", uniq, (message_list)->
+				m = m.concat message_list
+				true
+			cm.getNextMessage "12121", uniq, (message_list)->
+				m = m.concat message_list
+				promise.emit "success", m
+				true
+			cm.gotMessage "messages|12121", "A last message"
+			promise
+		"All the messages were gotten": (message_list)->
+			assert.notEqual -1, message_list.indexOf "This is a message"
+			assert.notEqual -1, message_list.indexOf "Message2"
+			assert.notEqual -1, message_list.indexOf "A last message"
 ).run();
