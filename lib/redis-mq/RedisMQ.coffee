@@ -40,13 +40,13 @@ class RedisMQ
 		builder.onDone (message)=>
 			callback message
 		for key, value of keys
-			if typeof value == "function"
+			if value
 				builder.loadKey key, (response)=>
 					otherkeys = value response
 					if otherkeys
 						builder.loadKey otherkey for otherkey in otherkeys
 			else
-				builder.loadKey value
+				builder.loadKey key
 	
 	listen: (userid)->
 		@channelManager.listen userid
