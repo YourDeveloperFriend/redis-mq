@@ -34,12 +34,12 @@
     },
     "Testing Send Payload": {
       topic: function() {
-        var errors, ids, mq, objects, promise, published, rpushed, successes;
+        var db, errors, ids, mq, promise, published, rpushed, successes;
         rpushed = [];
         published = [];
         promise = new events.EventEmitter;
         ids = 0;
-        objects = {};
+        db = {};
         mq = new RedisMQ({
           client: {
             rpush: function(key, id, callback) {
@@ -69,7 +69,7 @@
               }, 100);
             },
             set: function(key, value, callback) {
-              objects[key] = value;
+              db[key] = value;
               return setTimeout(function() {
                 return callback(null, value);
               }, 100);
@@ -109,7 +109,8 @@
             rpushed: rpushed,
             published: published,
             errors: errors,
-            successes: successes
+            successes: successes,
+            db: db
           });
         });
         return promise;
@@ -160,6 +161,51 @@
         }
         return _results;
       },
+      "All of the messages were set": function(result) {
+        var expected, key, message_info, messageid, userid, value, _i, _len, _results;
+        expected = [
+          {
+            userid: "54321",
+            data: {
+              test1: "a",
+              test2: "b",
+              test3: "c"
+            }
+          }, {
+            userid: "123",
+            data: {
+              test1: "9",
+              test2: "8",
+              test3: "7"
+            }
+          }, {
+            userid: "54321",
+            data: {
+              test1: "1",
+              test2: "2",
+              test3: "3"
+            }
+          }
+        ];
+        messageid = 0;
+        _results = [];
+        for (_i = 0, _len = expected.length; _i < _len; _i++) {
+          message_info = expected[_i];
+          messageid++;
+          userid = message_info.userid;
+          _results.push((function() {
+            var _ref, _results1;
+            _ref = message_info.data;
+            _results1 = [];
+            for (key in _ref) {
+              value = _ref[key];
+              _results1.push(assert.equal(result.db[["ddd", userid, "mmm", messageid, key].join("|")], value));
+            }
+            return _results1;
+          })());
+        }
+        return _results;
+      },
       "There were no errors": function(result) {
         var err, _i, _len, _ref, _results;
         _ref = result.errors;
@@ -170,7 +216,7 @@
         }
         return _results;
       },
-      "There were no errors": function(result) {
+      "There were all successes": function(result) {
         var success, _i, _len, _ref, _results;
         _ref = result.successes;
         _results = [];
@@ -301,7 +347,7 @@
         return _results;
       }
     },
-    "Testing Send Payload": {
+    "Testing Get Page": {
       topic: function() {
         var db, i, mq, promise, result, _i;
         promise = new events.EventEmitter;

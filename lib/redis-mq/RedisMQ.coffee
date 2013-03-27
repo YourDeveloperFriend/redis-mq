@@ -23,7 +23,7 @@ class RedisMQ
 		redisSetter = new RedisSetter
 			delimiter: @delimiter
 			client: @client
-			redis_base: @message_key
+			redis_base: RedisHelper.buildKey(@delimiter, [@user_key, toid, @message_key])
 		redisSetter.saveObject payload, (id)=>
 			@client.rpush RedisHelper.buildKey(@delimiter, [@user_key, toid, @message_key]), id, (err, reply)=>
 				

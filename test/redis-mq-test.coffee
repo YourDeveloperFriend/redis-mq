@@ -23,7 +23,7 @@ vows.describe("Redis MQ Test").addBatch(
 			published = []
 			promise = new (events.EventEmitter)
 			ids = 0
-			objects = {}
+			db = {}
 			mq = new RedisMQ
 				client:
 					rpush: (key, id, callback)->
@@ -47,7 +47,7 @@ vows.describe("Redis MQ Test").addBatch(
 							callback null, other
 						, 100
 					set: (key, value, callback)->
-						objects[key] = value
+						db[key] = value
 						setTimeout ->
 							callback null, value
 						, 100
@@ -83,6 +83,7 @@ vows.describe("Redis MQ Test").addBatch(
 					published: published
 					errors: errors
 					successes: successes
+					db: db
 			promise
 		"The messages were pushed onto the user": (result)->
 			expected = [
@@ -112,9 +113,35 @@ vows.describe("Redis MQ Test").addBatch(
 			for published, key in result.published
 				assert.equal expected[key].channel, published.channel
 				assert.equal expected[key].message_id, published.message_id
+		"All of the messages were set": (result)->
+			expected = [
+				userid: "54321"
+				data:
+					test1: "a"
+					test2: "b"
+					test3: "c"
+			,
+				userid: "123"
+				data:
+					test1: "9"
+					test2: "8"
+					test3: "7"
+			,
+				userid: "54321"
+				data:
+					test1: "1"
+					test2: "2"
+					test3: "3"
+			]
+			messageid = 0
+			for message_info in expected
+				messageid++
+				userid = message_info.userid
+				for key, value of message_info.data
+					assert.equal result.db[["ddd", userid, "mmm", messageid, key].join("|")], value
 		"There were no errors": (result)->
 			assert.equal false, err for err in result.errors
-		"There were no errors": (result)->
+		"There were all successes": (result)->
 			assert.equal true, success for success in result.successes
 	"Testing get message":
 		topic: ->
@@ -189,7 +216,7 @@ vows.describe("Redis MQ Test").addBatch(
 				start4: 0
 			for key, value of expected
 				assert.equal value, result[key]
-	"Testing Send Payload":
+	"Testing Get Page":
 		topic: ->
 			promise = new (events.EventEmitter)
 			result =
