@@ -1,4 +1,4 @@
-RedisQueue = require('./lib/redis-mq/RedisMQ').RedisQueue
+RedisMQ = require('./lib/redis-mq/RedisMQ').RedisMQ
 ChannelManager = require('./lib/redis-mq/ChannelManager').ChannelManager
-exports.RedisQueue = RedisQueue
+exports.RedisMQ = RedisMQ
 exports.ChannelManager = ChannelManager

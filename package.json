@@ -1,6 +1,6 @@
 {
 	"name": "redis-mq",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"main": "index.js",
 	"description": "A message queue utilizing redis' pub/sub system",
 	"author": "Nathan Tate",
