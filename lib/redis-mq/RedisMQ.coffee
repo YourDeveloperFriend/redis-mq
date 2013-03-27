@@ -31,7 +31,7 @@ class RedisMQ
 				
 			callback false, true
 			
-	getMessage: (messageid, callback)->
+	getMessage: (messageid, keys, callback)->
 		builder = new RedisGetter
 			delimiter: @delimiter
 			client: @client
@@ -39,13 +39,14 @@ class RedisMQ
 			id: messageid
 		builder.onDone (message)=>
 			callback message
-		builder.loadKey 'toid'
-		builder.loadKey 'subject'
-		builder.loadKey 'message'
-		builder.loadKey 'unread'
-		builder.loadKey 'type', (type)=>
-			switch type
-				when "PersonalMessage" then builder.loadKey 'fromid'
+		for key, value of keys
+			if typeof value == "function"
+				builder.loadKey key, (response)=>
+					otherkeys = value response
+					if otherkeys
+						builder.loadKey otherkey for otherkey in otherkeys
+			else
+				builder.loadKey value
 	
 	listen: (userid)->
 		@channelManager.listen userid
