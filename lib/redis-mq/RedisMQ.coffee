@@ -35,7 +35,7 @@ class RedisMQ
 		builder = new RedisGetter
 			delimiter: @delimiter
 			client: @client
-			redis_key: @message_key
+			redis_base: @message_key
 			id: messageid
 		builder.onDone (message)=>
 			callback message

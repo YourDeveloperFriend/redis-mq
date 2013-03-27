@@ -116,6 +116,59 @@ vows.describe("Redis MQ Test").addBatch(
 			assert.equal false, err for err in result.errors
 		"There were no errors": (result)->
 			assert.equal true, success for success in result.successes
+	"Testing get message":
+		topic: ->
+			promise = new (events.EventEmitter)
+			craft_db =
+				message1:
+					toid: true
+					subject: false
+					message: true
+					message2: true
+					type: "TWO"
+				message2:
+					toid: true
+					subject: true
+					message: false
+					message2: false
+					type: "THREE"
+			db = {}
+			for id, object of craft_db
+				for key, value of object
+					db[["messages", id, key].join "|"] = value
+			mq = new RedisMQ
+				client:
+					get: (key, callback)->
+						setTimeout ->
+							callback null, db[key]
+						, 100
+				channelManager: "G"
+			
+			keys =
+				toid: false
+				type: (type)->
+					switch type
+						when "TWO"
+							return ["message", "message2"]
+						when "THREE"
+							return ["subject"]
+			messages = []
+			mq.getMessage "message1", keys, (message)->
+				messages.push message
+				mq.getMessage "message2", keys, (message)->
+					messages.push message
+					promise.emit "success", messages
+			promise
+		"The first message arrived": (messages)->
+			message = messages[0]
+			assert.equal Object.keys(message).length, 4
+			assert.equal "TWO", message["type"]
+			assert.equal value, true for key, value of message when key isnt "type"
+		"The second message arrived": (messages)->
+			message = messages[1]
+			assert.equal Object.keys(message).length, 3
+			assert.equal "THREE", message["type"]
+			assert.equal value, true for key, value of message when key isnt "type"
 	"Testing message count":
 		topic: ->
 			mq = new RedisMQ

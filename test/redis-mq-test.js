@@ -181,6 +181,94 @@
         return _results;
       }
     },
+    "Testing get message": {
+      topic: function() {
+        var craft_db, db, id, key, keys, messages, mq, object, promise, value;
+        promise = new events.EventEmitter;
+        craft_db = {
+          message1: {
+            toid: true,
+            subject: false,
+            message: true,
+            message2: true,
+            type: "TWO"
+          },
+          message2: {
+            toid: true,
+            subject: true,
+            message: false,
+            message2: false,
+            type: "THREE"
+          }
+        };
+        db = {};
+        for (id in craft_db) {
+          object = craft_db[id];
+          for (key in object) {
+            value = object[key];
+            db[["messages", id, key].join("|")] = value;
+          }
+        }
+        mq = new RedisMQ({
+          client: {
+            get: function(key, callback) {
+              return setTimeout(function() {
+                return callback(null, db[key]);
+              }, 100);
+            }
+          },
+          channelManager: "G"
+        });
+        keys = {
+          toid: false,
+          type: function(type) {
+            switch (type) {
+              case "TWO":
+                return ["message", "message2"];
+              case "THREE":
+                return ["subject"];
+            }
+          }
+        };
+        messages = [];
+        mq.getMessage("message1", keys, function(message) {
+          messages.push(message);
+          return mq.getMessage("message2", keys, function(message) {
+            messages.push(message);
+            return promise.emit("success", messages);
+          });
+        });
+        return promise;
+      },
+      "The first message arrived": function(messages) {
+        var key, message, value, _results;
+        message = messages[0];
+        assert.equal(Object.keys(message).length, 4);
+        assert.equal("TWO", message["type"]);
+        _results = [];
+        for (key in message) {
+          value = message[key];
+          if (key !== "type") {
+            _results.push(assert.equal(value, true));
+          }
+        }
+        return _results;
+      },
+      "The second message arrived": function(messages) {
+        var key, message, value, _results;
+        message = messages[1];
+        assert.equal(Object.keys(message).length, 3);
+        assert.equal("THREE", message["type"]);
+        _results = [];
+        for (key in message) {
+          value = message[key];
+          if (key !== "type") {
+            _results.push(assert.equal(value, true));
+          }
+        }
+        return _results;
+      }
+    },
     "Testing message count": {
       topic: function() {
         var mq, result;
