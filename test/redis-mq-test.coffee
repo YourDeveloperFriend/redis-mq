@@ -116,4 +116,56 @@ vows.describe("Redis MQ Test").addBatch(
 			assert.equal false, err for err in result.errors
 		"There were no errors": (result)->
 			assert.equal true, success for success in result.successes
+	"Testing message count":
+		topic: ->
+			mq = new RedisMQ
+				client: "B"
+				channelManager: "G"
+			result =
+				start0: mq.getMessagesStart(125, 30, 1),
+				start1: mq.getMessagesStart(125, 15, 4),
+				start2: mq.getMessagesStart(125, 30, 5),
+				start3: mq.getMessagesStart(125, 30, 20),
+				start4: mq.getMessagesStart(125, 130, 2),
+		"All the starts were valid": (result)->
+			expected =
+				start0: 0
+				start1: 45
+				start2: 120
+				start3: 120
+				start4: 0
+			for key, value of expected
+				assert.equal value, result[key]
+	"Testing Send Payload":
+		topic: ->
+			promise = new (events.EventEmitter)
+			result =
+				start: null
+				number: null	
+			db = []
+			for i in [0..130]
+				db.push "message" + i
+			mq = new RedisMQ
+				client:
+					on: ->
+						
+					llen: (key, callback)->
+						callback null, db.length
+					lrange: (key, start, number, callback)->
+						result.start = start
+						result.number = number
+						to_send = db.slice start, start + number
+						callback null, to_send
+				channelManager: "G"
+			
+			mq.getPage "54321", 3, 20, (messages)->
+				result.messages = messages
+				promise.emit "success", result
+			promise
+		"The correct start and number were calculated": (result)->
+			assert.equal 40, result.start
+			assert.equal 20, result.number
+		"The correct messages were grabbed": (result)->
+			for i in [40..59]
+				assert.notEqual -1, result.messages.indexOf "message" + i
 ).run();

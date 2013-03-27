@@ -180,6 +180,85 @@
         }
         return _results;
       }
+    },
+    "Testing message count": {
+      topic: function() {
+        var mq, result;
+        mq = new RedisMQ({
+          client: "B",
+          channelManager: "G"
+        });
+        return result = {
+          start0: mq.getMessagesStart(125, 30, 1),
+          start1: mq.getMessagesStart(125, 15, 4),
+          start2: mq.getMessagesStart(125, 30, 5),
+          start3: mq.getMessagesStart(125, 30, 20),
+          start4: mq.getMessagesStart(125, 130, 2)
+        };
+      },
+      "All the starts were valid": function(result) {
+        var expected, key, value, _results;
+        expected = {
+          start0: 0,
+          start1: 45,
+          start2: 120,
+          start3: 120,
+          start4: 0
+        };
+        _results = [];
+        for (key in expected) {
+          value = expected[key];
+          _results.push(assert.equal(value, result[key]));
+        }
+        return _results;
+      }
+    },
+    "Testing Send Payload": {
+      topic: function() {
+        var db, i, mq, promise, result, _i;
+        promise = new events.EventEmitter;
+        result = {
+          start: null,
+          number: null
+        };
+        db = [];
+        for (i = _i = 0; _i <= 130; i = ++_i) {
+          db.push("message" + i);
+        }
+        mq = new RedisMQ({
+          client: {
+            on: function() {},
+            llen: function(key, callback) {
+              return callback(null, db.length);
+            },
+            lrange: function(key, start, number, callback) {
+              var to_send;
+              result.start = start;
+              result.number = number;
+              to_send = db.slice(start, start + number);
+              return callback(null, to_send);
+            }
+          },
+          channelManager: "G"
+        });
+        mq.getPage("54321", 3, 20, function(messages) {
+          result.messages = messages;
+          return promise.emit("success", result);
+        });
+        return promise;
+      },
+      "The correct start and number were calculated": function(result) {
+        assert.equal(40, result.start);
+        return assert.equal(20, result.number);
+      },
+      "The correct messages were grabbed": function(result) {
+        var i, _i, _results;
+        _results = [];
+        for (i = _i = 40; _i <= 59; i = ++_i) {
+          _results.push(assert.notEqual(-1, result.messages.indexOf("message" + i)));
+        }
+        return _results;
+      }
     }
   }).run();
 
