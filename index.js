@@ -2,9 +2,9 @@
 (function() {
   var ChannelManager, RedisQueue;
 
-  RedisQueue = require('lib/redis-mq/RedisMQ').RedisQueue;
+  RedisQueue = require('./lib/redis-mq/RedisMQ').RedisQueue;
 
-  ChannelManager = require('lib/redis-mq/ChannelManager').ChannelManager;
+  ChannelManager = require('./lib/redis-mq/ChannelManager').ChannelManager;
 
   exports.RedisQueue = RedisQueue;
 
