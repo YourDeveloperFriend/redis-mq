@@ -162,7 +162,7 @@ vows.describe("Redis MQ Test").addBatch(
 			db = {}
 			for id, object of craft_db
 				for key, value of object
-					db[["messages", id, key].join "|"] = value
+					db[["users", "54", "messages", id, key].join "|"] = value
 			mq = new RedisMQ
 				client:
 					get: (key, callback)->
@@ -180,9 +180,9 @@ vows.describe("Redis MQ Test").addBatch(
 						when "THREE"
 							return ["subject"]
 			messages = []
-			mq.getMessage "message1", keys, (message)->
+			mq.getMessage "54", "message1", keys, (message)->
 				messages.push message
-				mq.getMessage "message2", keys, (message)->
+				mq.getMessage "54", "message2", keys, (message)->
 					messages.push message
 					promise.emit "success", messages
 			promise

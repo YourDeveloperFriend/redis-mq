@@ -269,7 +269,6 @@
         return promise;
       },
       "All the messages were gotten": function(message_list) {
-        console.log(message_list);
         assert.notEqual(-1, message_list.indexOf("This is a message"));
         assert.notEqual(-1, message_list.indexOf("Message2"));
         return assert.notEqual(-1, message_list.indexOf("A last message"));

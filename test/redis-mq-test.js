@@ -252,7 +252,7 @@
           object = craft_db[id];
           for (key in object) {
             value = object[key];
-            db[["messages", id, key].join("|")] = value;
+            db[["users", "54", "messages", id, key].join("|")] = value;
           }
         }
         mq = new RedisMQ({
@@ -277,9 +277,9 @@
           }
         };
         messages = [];
-        mq.getMessage("message1", keys, function(message) {
+        mq.getMessage("54", "message1", keys, function(message) {
           messages.push(message);
-          return mq.getMessage("message2", keys, function(message) {
+          return mq.getMessage("54", "message2", keys, function(message) {
             messages.push(message);
             return promise.emit("success", messages);
           });

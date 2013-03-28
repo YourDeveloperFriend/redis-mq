@@ -31,11 +31,11 @@ class RedisMQ
 				
 			callback false, true
 			
-	getMessage: (messageid, keys, callback)->
+	getMessage: (userid, messageid, keys, callback)->
 		builder = new RedisGetter
 			delimiter: @delimiter
 			client: @client
-			redis_base: @message_key
+			redis_base: RedisHelper.buildKey(@delimiter, [@user_key, userid, @message_key])
 			id: messageid
 		builder.onDone (message)=>
 			callback message

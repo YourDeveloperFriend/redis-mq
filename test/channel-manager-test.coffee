@@ -196,7 +196,6 @@ vows.describe("Channel Manager Test").addBatch(
 			cm.gotMessage "messages|12121", "A last message"
 			promise
 		"All the messages were gotten": (message_list)->
-			console.log message_list
 			assert.notEqual -1, message_list.indexOf "This is a message"
 			assert.notEqual -1, message_list.indexOf "Message2"
 			assert.notEqual -1, message_list.indexOf "A last message"
