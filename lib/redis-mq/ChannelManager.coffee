@@ -37,15 +37,14 @@ class ChannelManager
 			else
 				@channels[userid].subscribers[uniq].callback = callback
 		else
-			throw "SubscriptionLost"
+			@listen userid, uniq
+			@getNextMessage userid, uniq, callback
 
-	listen: (userid)->
+	listen: (userid, uniq)->
 		unless @channels[userid]
 			@channels[userid] =
-				uniq: 0
 				subscribers: {}
 			@client.subscribe @buildChannelKey userid
-		uniq = @channels[userid].uniq++
 		@channels[userid].subscribers[uniq] =
 			messages: []
 			callback: null

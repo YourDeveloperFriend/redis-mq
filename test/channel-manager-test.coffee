@@ -135,10 +135,10 @@ vows.describe("Channel Manager Test").addBatch(
 					unsubscribe: (channel)->
 						channels_unsubscribed.push channel
 				cleanup: 500
-			uniq1 = cm.listen 12345
-			uniq2 = cm.listen 12345
-			uniq3 = cm.listen 12345
-			uniq4 = cm.listen 432
+			cm.listen 12345, "ABC"
+			cm.listen 12345, "DEF"
+			cm.listen 12345, "GEH"
+			cm.listen 432, "IJK"
 			
 			channels_before = []
 			for userid, subscribers of cm.channels
@@ -146,31 +146,21 @@ vows.describe("Channel Manager Test").addBatch(
 					channels_before.push(userid + ":" + uniq)
 			setTimeout ->
 				promise.emit 'success',
-					uniqs: [
-						uniq1
-						uniq2
-						uniq3
-						uniq4
-					]
 					cm: cm
 					channels_subscribed: channels_subscribed
 					channels_unsubscribed: channels_unsubscribed
 					channels_before: channels_before
 			, 550
 			promise
-		"The uniqs are all unique": (result)->
-			for i, uniq in result.uniqs when i isnt 3
-				for j, uniq2 in result.uniqs when i isnt j and j isnt 3
-					assert.notEqual uniq, uniq2
 		"The channels were all subscribed": (result)->
 			assert.equal 2, result.channels_subscribed.length
 			assert.notEqual -1, result.channels_subscribed.indexOf("messages|432")
 			assert.notEqual -1, result.channels_subscribed.indexOf("messages|12345")
 		"The channels were inserted into the object": (result)->
-			assert.notEqual -1, result.channels_before.indexOf("12345:" + result.uniqs[0])
-			assert.notEqual -1, result.channels_before.indexOf("12345:" + result.uniqs[1])
-			assert.notEqual -1, result.channels_before.indexOf("12345:" + result.uniqs[2])
-			assert.notEqual -1, result.channels_before.indexOf("432:" + result.uniqs[3])
+			assert.notEqual -1, result.channels_before.indexOf("12345:ABC")
+			assert.notEqual -1, result.channels_before.indexOf("12345:DEF")
+			assert.notEqual -1, result.channels_before.indexOf("12345:GEH")
+			assert.notEqual -1, result.channels_before.indexOf("432:IJK")
 		"The channels were appropriately unsubscribed": (result)->
 			assert.equal 0, Object.keys(result.cm.channels).length
 			assert.notEqual -1, result.channels_unsubscribed.indexOf("messages|432")
@@ -187,10 +177,15 @@ vows.describe("Channel Manager Test").addBatch(
 					unsubscribe: ->
 						
 				cleanup: 500
-			uniq = cm.listen "12121"
-			cm.gotMessage "messages|12121", "This is a message"
-			cm.gotMessage "messages|12121", "Message2"
+			uniq = "55555"
 			m = []
+			cm.getNextMessage "12121", uniq, (message_list)->
+				m = m.concat message_list
+				true
+			cm.gotMessage "messages|12121", "This is a message"
+			cm.getNextMessage "12121", uniq, (message_list)->
+				false
+			cm.gotMessage "messages|12121", "Message2"
 			cm.getNextMessage "12121", uniq, (message_list)->
 				m = m.concat message_list
 				true
@@ -201,6 +196,7 @@ vows.describe("Channel Manager Test").addBatch(
 			cm.gotMessage "messages|12121", "A last message"
 			promise
 		"All the messages were gotten": (message_list)->
+			console.log message_list
 			assert.notEqual -1, message_list.indexOf "This is a message"
 			assert.notEqual -1, message_list.indexOf "Message2"
 			assert.notEqual -1, message_list.indexOf "A last message"

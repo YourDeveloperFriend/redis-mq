@@ -176,7 +176,7 @@
     },
     "Listening": {
       topic: function() {
-        var channels_before, channels_subscribed, channels_unsubscribed, cm, promise, subscriber, subscribers, uniq, uniq1, uniq2, uniq3, uniq4, userid, _ref, _ref1;
+        var channels_before, channels_subscribed, channels_unsubscribed, cm, promise, subscriber, subscribers, uniq, userid, _ref, _ref1;
         promise = new events.EventEmitter;
         channels_subscribed = [];
         channels_unsubscribed = [];
@@ -192,10 +192,10 @@
           },
           cleanup: 500
         });
-        uniq1 = cm.listen(12345);
-        uniq2 = cm.listen(12345);
-        uniq3 = cm.listen(12345);
-        uniq4 = cm.listen(432);
+        cm.listen(12345, "ABC");
+        cm.listen(12345, "DEF");
+        cm.listen(12345, "GEH");
+        cm.listen(432, "IJK");
         channels_before = [];
         _ref = cm.channels;
         for (userid in _ref) {
@@ -208,7 +208,6 @@
         }
         setTimeout(function() {
           return promise.emit('success', {
-            uniqs: [uniq1, uniq2, uniq3, uniq4],
             cm: cm,
             channels_subscribed: channels_subscribed,
             channels_unsubscribed: channels_unsubscribed,
@@ -217,39 +216,16 @@
         }, 550);
         return promise;
       },
-      "The uniqs are all unique": function(result) {
-        var i, j, uniq, uniq2, _i, _len, _ref, _results;
-        _ref = result.uniqs;
-        _results = [];
-        for (uniq = _i = 0, _len = _ref.length; _i < _len; uniq = ++_i) {
-          i = _ref[uniq];
-          if (i !== 3) {
-            _results.push((function() {
-              var _j, _len1, _ref1, _results1;
-              _ref1 = result.uniqs;
-              _results1 = [];
-              for (uniq2 = _j = 0, _len1 = _ref1.length; _j < _len1; uniq2 = ++_j) {
-                j = _ref1[uniq2];
-                if (i !== j && j !== 3) {
-                  _results1.push(assert.notEqual(uniq, uniq2));
-                }
-              }
-              return _results1;
-            })());
-          }
-        }
-        return _results;
-      },
       "The channels were all subscribed": function(result) {
         assert.equal(2, result.channels_subscribed.length);
         assert.notEqual(-1, result.channels_subscribed.indexOf("messages|432"));
         return assert.notEqual(-1, result.channels_subscribed.indexOf("messages|12345"));
       },
       "The channels were inserted into the object": function(result) {
-        assert.notEqual(-1, result.channels_before.indexOf("12345:" + result.uniqs[0]));
-        assert.notEqual(-1, result.channels_before.indexOf("12345:" + result.uniqs[1]));
-        assert.notEqual(-1, result.channels_before.indexOf("12345:" + result.uniqs[2]));
-        return assert.notEqual(-1, result.channels_before.indexOf("432:" + result.uniqs[3]));
+        assert.notEqual(-1, result.channels_before.indexOf("12345:ABC"));
+        assert.notEqual(-1, result.channels_before.indexOf("12345:DEF"));
+        assert.notEqual(-1, result.channels_before.indexOf("12345:GEH"));
+        return assert.notEqual(-1, result.channels_before.indexOf("432:IJK"));
       },
       "The channels were appropriately unsubscribed": function(result) {
         assert.equal(0, Object.keys(result.cm.channels).length);
@@ -269,10 +245,17 @@
           },
           cleanup: 500
         });
-        uniq = cm.listen("12121");
-        cm.gotMessage("messages|12121", "This is a message");
-        cm.gotMessage("messages|12121", "Message2");
+        uniq = "55555";
         m = [];
+        cm.getNextMessage("12121", uniq, function(message_list) {
+          m = m.concat(message_list);
+          return true;
+        });
+        cm.gotMessage("messages|12121", "This is a message");
+        cm.getNextMessage("12121", uniq, function(message_list) {
+          return false;
+        });
+        cm.gotMessage("messages|12121", "Message2");
         cm.getNextMessage("12121", uniq, function(message_list) {
           m = m.concat(message_list);
           return true;
@@ -286,6 +269,7 @@
         return promise;
       },
       "All the messages were gotten": function(message_list) {
+        console.log(message_list);
         assert.notEqual(-1, message_list.indexOf("This is a message"));
         assert.notEqual(-1, message_list.indexOf("Message2"));
         return assert.notEqual(-1, message_list.indexOf("A last message"));

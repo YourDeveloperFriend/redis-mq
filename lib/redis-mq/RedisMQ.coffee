@@ -47,9 +47,6 @@ class RedisMQ
 						builder.loadKey otherkey for otherkey in otherkeys
 			else
 				builder.loadKey key
-	
-	listen: (userid)->
-		@channelManager.listen userid
 		
 	getNextMessage: (userid, uniq, callback)->
 		@channelManager.getNextMessage userid, uniq, callback
