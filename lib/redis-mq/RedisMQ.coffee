@@ -20,14 +20,17 @@ class RedisMQ
 				throw "Expected " + key + " for redis mq"
 
 	sendPayload: (toid, payload, callback)->
+		messages_key = @buildMessagesKey toid
 		redisSetter = new RedisSetter
 			delimiter: @delimiter
 			client: @client
-			redis_base: RedisHelper.buildKey(@delimiter, [@user_key, toid, @message_key])
+			redis_base: messages_key
 		redisSetter.saveObject payload, (id)=>
-			@client.rpush RedisHelper.buildKey(@delimiter, [@user_key, toid, @message_key]), id, (err, reply)=>
+			@client.lpush messages_key, id, (err, reply)=>
 				
 			@client.publish @channel_key + '|' + toid, id, (err, reply)=>
+			
+			@client.sadd messages_key, id, (err, reply)=>
 				
 			callback false, true
 			
@@ -35,7 +38,7 @@ class RedisMQ
 		builder = new RedisGetter
 			delimiter: @delimiter
 			client: @client
-			redis_base: RedisHelper.buildKey(@delimiter, [@user_key, userid, @message_key])
+			redis_base: @buildMessagesKey(userid)
 			id: messageid
 		builder.onDone (message)=>
 			callback message
@@ -47,17 +50,26 @@ class RedisMQ
 						builder.loadKey otherkey for otherkey in otherkeys
 			else
 				builder.loadKey key
-		
+	buildMessagesKey: (userid)->
+		RedisHelper.buildKey @delimiter, [@user_key, userid, @message_key]
+	buildUnreadKey: (userid)->
+		RedisHelper.buildKey @delimiter, [@user_key, userid, @message_key, 'unread']
 	getNextMessage: (userid, uniq, callback)->
 		@channelManager.getNextMessage userid, uniq, callback
 	getMessagesStart: (messages_count, messages_per_page, page)->
 		start = Math.min (page - 1) * messages_per_page, messages_count - (messages_count % messages_per_page)
+			
 	getPage: (userid, page, messages_per_page, callback)->
-		user_messages_key = RedisHelper.buildKey @delimiter, [@user_key, userid, @message_key]
+		user_messages_key = @buildMessagesKey(userid)
 		@client.llen user_messages_key, (err, messages_count)=>
-			messages_count = parseInt messages_count
-			messages_start = @getMessagesStart(messages_count, messages_per_page, page)
-			@client.lrange user_messages_key, messages_start, messages_per_page, (err, messages)=>
-				callback messages
-
+				messages_count = parseInt messages_count
+				messages_start = @getMessagesStart(messages_count, messages_per_page, page)
+				@client.lrange user_messages_key, messages_start, messages_per_page, (err, messages)=>
+						callback messages
+	getUnread: (userid, callback)->
+		@client.smembers @buildUnreadKey(userid), (err, messages)=>
+			callback if err then [] else messages
+	setRead: (userid, messageid, callback)->
+		@client.srem @buildUnreadKey(userid), messageid, (err, removed)=>
+			callback if err then false else removed > 0
 exports.RedisMQ = RedisMQ

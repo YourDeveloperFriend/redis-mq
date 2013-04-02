@@ -34,43 +34,53 @@
     },
     "Testing Send Payload": {
       topic: function() {
-        var db, errors, ids, mq, promise, published, rpushed, successes;
-        rpushed = [];
+        var db, errors, ids, lpushed, mq, promise, published, successes, unread;
+        lpushed = [];
         published = [];
         promise = new events.EventEmitter;
         ids = 0;
         db = {};
+        unread = {};
         mq = new RedisMQ({
           client: {
-            rpush: function(key, id, callback) {
-              rpushed.push({
-                user_key: key,
-                message_id: id
-              });
+            lpush: function(key, id, callback) {
               return setTimeout(function() {
+                lpushed.push({
+                  user_key: key,
+                  message_id: id
+                });
                 return callback();
               }, 100);
             },
             publish: function(channel, id, callback) {
-              published.push({
-                channel: channel,
-                message_id: id
-              });
               return setTimeout(function() {
+                published.push({
+                  channel: channel,
+                  message_id: id
+                });
                 return callback();
               }, 100);
             },
             incr: function(key, callback) {
-              var other;
-              ids++;
-              other = ids;
               return setTimeout(function() {
+                var other;
+                ids++;
+                other = ids;
                 return callback(null, other);
               }, 100);
             },
             set: function(key, value, callback) {
               db[key] = value;
               return setTimeout(function() {
+                return callback(null, value);
+              }, 100);
+            },
+            sadd: function(key, value, callback) {
+              return setTimeout(function() {
+                if (unread[key] == null) {
+                  unread[key] = {};
+                }
+                unread[key][value] = true;
                 return callback(null, value);
               }, 100);
             }
@@ -106,14 +116,38 @@
           errors.push(err);
           successes.push(success);
           return promise.emit("success", {
-            rpushed: rpushed,
+            lpushed: lpushed,
             published: published,
             errors: errors,
             successes: successes,
-            db: db
+            db: db,
+            unread: unread
           });
         });
         return promise;
+      },
+      "The messages were added to the unread set": function(result) {
+        var expected, key, pushed, _i, _len, _ref, _results;
+        expected = [
+          {
+            unread_key: "ddd|54321|mmm|unread",
+            message_id: 1
+          }, {
+            user_key: "ddd|123|mmm|unread",
+            message_id: 2
+          }, {
+            user_key: "ddd|54321|mmm|unread",
+            message_id: 3
+          }
+        ];
+        _ref = result.unread;
+        _results = [];
+        for (key = _i = 0, _len = _ref.length; _i < _len; key = ++_i) {
+          pushed = _ref[key];
+          assert.equal(expected[key].user_key, pushed.user_key);
+          _results.push(assert.equal(expected[key].message_id, pushed.message_id));
+        }
+        return _results;
       },
       "The messages were pushed onto the user": function(result) {
         var expected, key, pushed, _i, _len, _ref, _results;
@@ -129,7 +163,7 @@
             message_id: 3
           }
         ];
-        _ref = result.rpushed;
+        _ref = result.lpushed;
         _results = [];
         for (key = _i = 0, _len = _ref.length; _i < _len; key = ++_i) {
           pushed = _ref[key];
@@ -363,14 +397,18 @@
           client: {
             on: function() {},
             llen: function(key, callback) {
-              return callback(null, db.length);
+              return setTimeout(function() {
+                return callback(null, db.length);
+              }, 100);
             },
             lrange: function(key, start, number, callback) {
-              var to_send;
-              result.start = start;
-              result.number = number;
-              to_send = db.slice(start, start + number);
-              return callback(null, to_send);
+              return setTimeout(function() {
+                var to_send;
+                result.start = start;
+                result.number = number;
+                to_send = db.slice(start, start + number);
+                return callback(null, to_send);
+              }, 100);
             }
           },
           channelManager: "G"
@@ -390,6 +428,93 @@
         _results = [];
         for (i = _i = 40; _i <= 59; i = ++_i) {
           _results.push(assert.notEqual(-1, result.messages.indexOf("message" + i)));
+        }
+        return _results;
+      }
+    },
+    "Test Read": {
+      topic: function() {
+        var append_success, db, messageid, messages, mq, promise, s, user_key, userid, users, _i, _len,
+          _this = this;
+        promise = new events.EventEmitter;
+        users = {
+          "54321": ["414", "123", "222"],
+          "123": ["111", "333", "2", "5"],
+          "4141": ["44", "3", "8888"]
+        };
+        db = {};
+        for (userid in users) {
+          messages = users[userid];
+          user_key = "users|" + userid + "|messages|unread";
+          db[user_key] = {};
+          for (_i = 0, _len = messages.length; _i < _len; _i++) {
+            messageid = messages[_i];
+            db[user_key][messageid] = true;
+          }
+        }
+        mq = new RedisMQ({
+          client: {
+            on: function() {},
+            srem: function(key, value, callback) {
+              return setTimeout(function() {
+                db[key][value] = false;
+                return callback(null, 1);
+              }, 100);
+            }
+          },
+          channelManager: "G"
+        });
+        s = true;
+        append_success = function(success) {
+          return s |= success;
+        };
+        mq.setRead("54321", "123", append_success);
+        mq.setRead("54321", "222", append_success);
+        mq.setRead("123", "2", append_success);
+        mq.setRead("123", "111", append_success);
+        mq.setRead("4141", "8888", function(success) {
+          append_success(success);
+          return promise.emit("success", {
+            success: s,
+            db: db
+          });
+        });
+        return promise;
+      },
+      "Was successful": function(result) {
+        return assert.equal(true, result.success);
+      },
+      "The right messages were removed": function(result) {
+        var messageid, messages, not_removed, removed, userid, _i, _len, _results;
+        removed = {
+          "54321": ["123", "222"],
+          "123": ["2", "111"],
+          "4141": ["8888"]
+        };
+        for (userid in removed) {
+          messages = removed[userid];
+          for (_i = 0, _len = messages.length; _i < _len; _i++) {
+            messageid = messages[_i];
+            assert.equal(false, result.db["users|" + userid + "|messages|unread"][messageid]);
+          }
+        }
+        not_removed = {
+          "54321": ["414"],
+          "123": ["333", "5"],
+          "4141": ["44", "3"]
+        };
+        _results = [];
+        for (userid in not_removed) {
+          messages = not_removed[userid];
+          _results.push((function() {
+            var _j, _len1, _results1;
+            _results1 = [];
+            for (_j = 0, _len1 = messages.length; _j < _len1; _j++) {
+              messageid = messages[_j];
+              _results1.push(assert.equal(true, result.db["users|" + userid + "|messages|unread"][messageid]));
+            }
+            return _results1;
+          })());
         }
         return _results;
       }

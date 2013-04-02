@@ -19,36 +19,43 @@ vows.describe("Redis MQ Test").addBatch(
 			assert.equal result.channelManager, "G"
 	"Testing Send Payload":
 		topic: ()->
-			rpushed = []
+			lpushed = []
 			published = []
 			promise = new (events.EventEmitter)
 			ids = 0
 			db = {}
+			unread = {}
 			mq = new RedisMQ
 				client:
-					rpush: (key, id, callback)->
-						rpushed.push
-							user_key: key
-							message_id: id
+					lpush: (key, id, callback)->
 						setTimeout ->
+							lpushed.push
+								user_key: key
+								message_id: id
 							callback()
 						, 100
 					publish: (channel, id, callback)->
-						published.push
-							channel: channel
-							message_id: id
 						setTimeout ->
+							published.push
+								channel: channel
+								message_id: id
 							callback()
 						, 100
 					incr: (key, callback)->
-						ids++
-						other = ids
 						setTimeout ->
+							ids++
+							other = ids
 							callback null, other
 						, 100
 					set: (key, value, callback)->
 						db[key] = value
 						setTimeout ->
+							callback null, value
+						, 100
+					sadd: (key, value, callback)->
+						setTimeout ->
+							unread[key] = {} unless unread[key]?
+							unread[key][value] = true
 							callback null, value
 						, 100
 				channelManager: "G"
@@ -79,12 +86,27 @@ vows.describe("Redis MQ Test").addBatch(
 				errors.push err
 				successes.push success
 				promise.emit "success",
-					rpushed: rpushed
+					lpushed: lpushed
 					published: published
 					errors: errors
 					successes: successes
 					db: db
+					unread: unread
 			promise
+		"The messages were added to the unread set": (result)->
+			expected = [
+				unread_key: "ddd|54321|mmm|unread"
+				message_id: 1
+			,
+				user_key: "ddd|123|mmm|unread"
+				message_id: 2
+			,
+				user_key: "ddd|54321|mmm|unread"
+				message_id: 3
+			]
+			for pushed, key in result.unread
+				assert.equal expected[key].user_key, pushed.user_key
+				assert.equal expected[key].message_id, pushed.message_id
 		"The messages were pushed onto the user": (result)->
 			expected = [
 				user_key: "ddd|54321|mmm"
@@ -96,7 +118,7 @@ vows.describe("Redis MQ Test").addBatch(
 				user_key: "ddd|54321|mmm"
 				message_id: 3
 			]
-			for pushed, key in result.rpushed
+			for pushed, key in result.lpushed
 				assert.equal expected[key].user_key, pushed.user_key
 				assert.equal expected[key].message_id, pushed.message_id
 		"The messages were published": (result)->
@@ -230,12 +252,16 @@ vows.describe("Redis MQ Test").addBatch(
 					on: ->
 						
 					llen: (key, callback)->
-						callback null, db.length
+						setTimeout ->
+							callback null, db.length
+						, 100
 					lrange: (key, start, number, callback)->
-						result.start = start
-						result.number = number
-						to_send = db.slice start, start + number
-						callback null, to_send
+						setTimeout ->
+							result.start = start
+							result.number = number
+							to_send = db.slice start, start + number
+							callback null, to_send
+						, 100
 				channelManager: "G"
 			
 			mq.getPage "54321", 3, 20, (messages)->
@@ -248,4 +274,55 @@ vows.describe("Redis MQ Test").addBatch(
 		"The correct messages were grabbed": (result)->
 			for i in [40..59]
 				assert.notEqual -1, result.messages.indexOf "message" + i
+	"Test Read":
+		topic: ->
+			promise = new (events.EventEmitter)
+			users =
+				"54321": ["414", "123", "222"]
+				"123": ["111", "333", "2", "5"]
+				"4141": ["44", "3", "8888"]
+			db = {}
+			for userid, messages of users
+				user_key = "users|" + userid + "|messages|unread"
+				db[user_key] = {}
+				db[user_key][messageid] = true for messageid in messages
+					
+			mq = new RedisMQ
+				client:
+					on: ->
+						
+					srem: (key, value, callback)->
+						setTimeout ->
+							db[key][value] = false
+							callback null, 1
+						, 100
+				channelManager: "G"
+			s = true
+			append_success = (success)=>
+				s |= success
+			mq.setRead "54321", "123", append_success
+			mq.setRead "54321", "222", append_success
+			mq.setRead "123", "2", append_success
+			mq.setRead "123", "111", append_success
+			mq.setRead "4141", "8888", (success)=>
+				append_success(success)
+				promise.emit "success",
+					success: s
+					db: db
+			promise
+		"Was successful": (result)->
+			assert.equal true, result.success
+		"The right messages were removed": (result)->
+			removed =
+				"54321": ["123", "222"]
+				"123": ["2", "111"]
+				"4141": ["8888"]
+			for userid, messages  of removed
+				assert.equal false, result.db["users|" + userid + "|messages|unread"][messageid] for messageid in messages
+			not_removed =
+				"54321": ["414"]
+				"123": ["333", "5"]
+				"4141": ["44", "3"]
+			for userid, messages of not_removed
+				assert.equal true, result.db["users|" + userid + "|messages|unread"][messageid] for messageid in messages
 ).run();
